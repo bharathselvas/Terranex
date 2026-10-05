@@ -1,301 +1,344 @@
-# Bhoomi Setu V2 — National Land Acquisition Operating System
+# Terranex — National Land Acquisition Operating System
 
-**SIH 2026 · Problem Statement 26016 · Department of Land Resources (DoLR), Government of India**
+> A parcel-centric orchestration layer for land acquisition under the RFCTLARR Act, 2013. Built for **Smart India Hackathon 2026 · Problem Statement 26016 · Department of Land Resources (DoLR)**.
 
-> **Current Status**: Frontend-first prototype (MVP). No backend is currently implemented; all data is served via realistic mocked state using Zustand stores.
+Terranex digitizes the complete land-acquisition lifecycle — from project proposal and Social Impact Assessment through Section 11 notification, objections, award, compensation, and possession — into one transparent, auditable, time-bound workflow spanning National → State → District → Tehsil → Village.
 
-## 1. Overview
+**Status:** Frontend-first prototype (MVP). No backend is implemented; all data is realistic mocked state served via Zustand stores. All ULPINs, PFMS IDs, and citizen records are synthetic demonstration data.
 
-Bhoomi Setu is a national operating system designed to digitize and streamline the **complete land acquisition lifecycle** under the Right to Fair Compensation and Transparency in Land Acquisition, Rehabilitation and Resettlement (RFCTLARR) Act, 2013.
+---
 
-It serves as a single source of truth across the administrative hierarchy, connecting project proponents, national and state ministries, district collectors (CALA), field officers, and affected citizens. It transforms a heavily paper-based, fragmented process into a transparent, auditable, and time-bound digital workflow.
+## Table of Contents
 
-## 2. Problem Statement
+- [Why Terranex](#why-bhoomi-setu)
+- [Key Features](#key-features)
+- [User Workflow](#user-workflow)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Available Scripts](#available-scripts)
+- [Core Modules](#core-modules)
+- [Data Model](#data-model)
+- [Roles & Access Model](#roles--access-model)
+- [Authentication & Authorization](#authentication--authorization)
+- [Integrations](#integrations)
+- [Limitations](#limitations)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Disclaimer](#disclaimer)
 
-Land acquisition in India under the RFCTLARR Act involves multiple stakeholders, complex statutory timelines, massive documentation, and coordination across national, state, district, and village levels. Currently, the lack of a unified digital platform leads to:
-- Significant delays in project execution due to communication gaps.
-- Opaque processes resulting in grievances and litigation from landowners.
-- Challenges in monitoring progress at the national/state level.
-- Disconnected systems for land records (DILRMP), project planning (PM Gati Shakti), and payments (PFMS).
+---
 
-## 3. Goals
+## Why Terranex
 
-- Provide a single unified platform for 11 distinct roles across the land acquisition lifecycle.
-- Enforce statutory timelines (SLAs) with automated alerts and risk monitoring.
-- Ensure transparent access to information and compensation tracking for citizens/landowners.
-- Enable spatial visibility of land parcels through GIS integration.
-- Maintain a strict, immutable audit trail of all decisions and document uploads.
+Land acquisition under the RFCTLARR Act involves 11+ stakeholder roles, statutory SLAs, large document volumes, and coordination across national, state, district, and village levels — today handled through fragmented, paper-heavy processes that cause project delays, grievances, and litigation.
 
-## 4. Non-Goals
+Terranex provides a single source of truth that:
 
-- This project is **not** a replacement for the core national land records database (DILRMP); it is a consumer of that data via ULPIN.
-- It does **not** handle internal accounting for Requiring Organizations, only the compensation disbursement workflow.
+- Gives every role a jurisdiction-scoped workspace (a Collector sees their district; a Field Officer sees their villages).
+- Advances each `AcquisitionCase` through a shared, stage-gated pipeline with an immutable audit trail.
+- Renders every parcel spatially via GIS overlays so acquisition scope is visible, not just tabular.
+- Gives citizens a dedicated portal to track notices, file objections, and follow compensation.
 
-## 5. Key Features
+It is a **consumer** of authoritative land records (DILRMP via ULPIN), not a replacement for them, and a **coordinator** of disbursement (via PFMS), not an accounting system.
 
-### ✅ Implemented (Frontend Mock MVP)
-- **Role-Based Access Control (RBAC)**: 11 distinct user roles with jurisdiction-scoped workspaces.
-- **Hierarchical Workflows**: Shared state workflow engine advancing cases from proposal to closure.
-- **GIS Visualization**: Interactive map interfaces with parcel overlays (via Leaflet).
-- **Citizen Portal**: Dedicated interface for landowners to track notices, objections, and payments.
-- **Document Vault**: Mocked document repository for storing statutory notices and reports.
-- **Audit Trail**: Action logging for accountability.
+---
 
-### 🚧 In Progress / 📋 Planned (National Scale)
-- 📋 **Backend & Database**: Migration from Zustand mock stores to a robust relational database and API layer.
-- 📋 **DILRMP / ULPIN Integration**: Real-time fetching of ownership data using ULPIN.
-- 📋 **PFMS Integration**: Automated direct benefit transfer (DBT) for compensation.
-- 📋 **PM Gati Shakti Integration**: Ingesting alignment data for infrastructure projects.
-- 📋 **Bhoomi Rashi Integration**: Interoperability for MoRTH highway projects.
+## Key Features
 
-## 6. User Roles & Access Model
+### Core
 
-The system enforces a strict National → State → District → Tehsil → Village hierarchy. Jurisdiction determines data visibility and workflow responsibilities.
+- **11 role workspaces** — tailored dashboards and action queues for every actor, from National Admin to Citizen (`src/features/*`).
+- **Stage-gated case pipeline** — proposal → scrutiny → SIA → Sec-11 notification → objections → Sec-19 declaration → field verification → award → payment → possession (`src/lib`, `src/stores/caseStore.ts`).
+- **GIS parcel visualization** — interactive Leaflet / react-leaflet maps with parcel overlays and mock GeoJSON (`src/features/gis`).
+- **Citizen portal** — landowners track notices, file objections/grievances, and follow payment status (`src/features/citizen`, `src/features/grievances`).
+- **Document vault** — mocked repository for statutory notices, SIA reports, and awards (`src/features/documents`).
+- **Audit trail** — every transition and upload logged as an `AuditEvent` (`src/features/audit`, `src/mocks/audit.ts`).
+- **Analytics dashboards** — SLA risk, stage funnel, and compensation views built with Recharts (`src/features/analytics`).
 
-| Role | Scope | Purpose & Permissions |
-| ---- | ----- | --------------------- |
-| **National Admin / DoLR** | National | Apex oversight, audit, and monitoring across all states. |
-| **Ministry Nodal Officer** | Ministry | Sponsoring ministry monitoring (e.g., MoRTH, MoD) for sanctioned projects. |
-| **Requiring Organization** | Project | Project proponent (NHAI, Railways, PWD) submitting land requirements and depositing funds. |
-| **State Nodal Officer** | State | Coordinates acquisition across districts; monitors SLAs for the state. |
-| **District Collector / CALA** | District | Statutory decision-maker (Competent Authority). Issues notices, hears objections, declares awards. |
-| **Tehsil / SDO** | Tehsil | Sub-divisional scrutiny, verification, and localized coordination. |
-| **Field Officer / VAO** | Village | Ground-level verification, measurement, panchnama, and GPS evidence capture. |
-| **SIA Expert Group** | District | Independent body conducting Social Impact Assessment and public hearings. |
-| **R&R Officer** | District | Manages Rehabilitation & Resettlement entitlements and colony development. |
-| **Finance Officer** | District | Computes compensation, processes awards, and initiates disbursement (PFMS). |
-| **Citizen / Landowner** | Village (Own) | Affected individual tracking notices, filing objections, and receiving compensation. |
+### Additional
 
-## 7. System Architecture
+- Role switcher on the landing page for demo login (no passwords in the MVP).
+- Jurisdiction filtering so each role only sees its legal scope.
+- shadcn/ui + Radix + Tailwind institutional design system with dark-mode-ready tokens.
+- Strict TypeScript domain models (`src/types/domain.ts`, `src/types/rbac.ts`).
+
+---
+
+## User Workflow
 
 ```mermaid
-flowchart TD
-    User([Users / 11 Roles])
-    
-    subgraph Frontend [React SPA (Vite)]
-        Router[React Router]
-        UI[Tailwind + shadcn/ui]
-        Map[Leaflet / React-Leaflet]
-    end
-    
-    subgraph StateManagement [Zustand Stores]
-        Session[Session/RBAC Store]
-        Domain[Domain/Case Store]
-        MockDB[(Mock JSON Data)]
-    end
-    
-    User --> Router
-    Router --> UI
-    UI --> Map
-    UI <--> Session
-    UI <--> Domain
-    Domain <--> MockDB
+flowchart LR
+    RO[Requiring Org\nsubmits proposal] --> ST[State / Collector\nscrutiny]
+    ST --> SIA[SIA Expert Group\nassessment + hearing]
+    SIA --> N11[CALA issues\nSec-11 notice]
+    N11 --> OBJ[Citizen files\nobjection]
+    OBJ --> HR[Hearing by\nCALA / Tehsil]
+    HR --> D19[Sec-19\ndeclaration]
+    D19 --> FV[Field Officer\nGPS verification]
+    FV --> AW[Finance + CALA\naward]
+    AW --> PAY[PFMS\ndisbursement]
+    PAY --> POS[Possession\n+ closure]
 ```
 
-> **Note**: The current architecture is entirely client-side for the MVP. Future iterations will introduce an API Gateway, Authorization Middleware, and a PostgreSQL database.
+Pick a role on the landing page → you land in that role's workspace → work items are filtered by jurisdiction → actions advance the shared case stage → audit log and dashboards update.
 
-## 8. Technology Stack
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+    User([Users — 11 roles]) --> Router[React Router<br/>+ RoleRedirect]
+    Router --> UI[Tailwind + shadcn/ui pages]
+    UI --> Map[Leaflet / react-leaflet]
+    UI --> Charts[Recharts dashboards]
+    UI <--> Session[Zustand sessionStore<br/>active role + jurisdiction]
+    UI <--> Domain[Zustand caseStore<br/>cases, parcels, docs, audit]
+    Domain <--> MockDB[(Mock JSON generators<br/>src/mocks)]
+```
+
+**Current reality:** the entire stack is client-side. There is no API server, no database, and no auth service. `sessionStore.ts` holds the demo identity; `caseStore.ts` is the de-facto backend (case transitions, parcel updates, payment statuses, audit appends). A production evolution would insert an API gateway, server-enforced RBAC middleware, and PostgreSQL/PostGIS behind the stores.
+
+| Component | Location | Responsibility |
+|---|---|---|
+| Router + role redirect | `src/app/router.tsx`, `src/app/RoleRedirect.tsx` | Route table, role-based landing and guards |
+| Feature workspaces | `src/features/*` | Per-role dashboards and workflows |
+| Domain store | `src/stores/caseStore.ts` | Case lifecycle, parcels, documents, payments, audit |
+| Session store | `src/stores/sessionStore.ts` | Active demo role and jurisdiction scope |
+| RBAC engine | `src/types/rbac.ts` | `canAccess`, jurisdiction filtering |
+| Mock data | `src/mocks/*` | Cases, parcels, projects, officers, audit seed |
+
+---
+
+## Tech Stack
 
 | Layer | Technology | Purpose |
-|------|------------|---------|
-| **Frontend Framework** | React 18, TypeScript 5, Vite 5 | Core application shell and UI rendering. |
-| **Styling & UI** | Tailwind CSS 3.4, shadcn/ui, Radix UI | Accessible, institutional design system. |
-| **State Management** | Zustand 4 | Lightweight global state for mocked backend data. |
-| **Routing** | React Router 6 | Client-side routing and role-based redirects. |
-| **Mapping / GIS** | Leaflet, React-Leaflet | Geospatial rendering of land parcels. |
-| **Charts** | Recharts | Dashboards and analytics visualization. |
-| **Icons** | Lucide React | Standardized iconography. |
+|---|---|---|
+| Framework | React 18, TypeScript 5, Vite 5 | SPA shell and rendering |
+| Styling / UI | Tailwind CSS 3.4, shadcn/ui, Radix UI | Accessible component system |
+| State | Zustand 4 | Client stores simulating the backend |
+| Routing | React Router 6 | Client-side routing, role redirects |
+| Maps | Leaflet 1.9, react-leaflet 4 | Parcel GIS rendering |
+| Charts | Recharts 2.12 | Dashboards and analytics |
+| Icons | Lucide React | Iconography |
+| Quality | `tsc --noEmit`, Oxlint | Type checking, linting |
 
-## 9. Repository Structure
+No backend, database, cache, queue, or observability stack is present in this MVP.
+
+---
+
+## Project Structure
 
 ```text
-bhoomisetu/
+.
 ├── src/
-│   ├── app/           # Router configuration and role redirect logic
-│   ├── components/    # Reusable UI components (shadcn primitives, shell)
-│   ├── features/      # Role-specific workspaces (e.g., admin, collector-cala, citizen)
-│   ├── lib/           # Utility functions (formatting, stages definition)
-│   ├── mocks/         # Mock data generators (cases, parcels, officers)
-│   ├── stores/        # Zustand stores simulating the backend
-│   └── types/         # TypeScript domain models and RBAC definitions
-├── package.json       # Project dependencies
-├── tailwind.config.ts # Tailwind CSS configuration
-└── vite.config.ts     # Vite bundler configuration
+│   ├── app/           # router.tsx, RoleRedirect.tsx
+│   ├── components/    # shadcn primitives, app shell, shared UI
+│   ├── features/      # per-role workspaces: admin, collector-cala,
+│   │                  #   tehsil-sdo, field-officer, sia-expert, rr-officer,
+│   │                  #   finance-officer, citizen, requiring-org, ministry,
+│   │                  #   state-nodal, land-admin + gis, cases, documents,
+│   │                  #   audit, analytics, grievances, notifications, overview
+│   ├── lib/           # utils, stage definitions
+│   ├── mocks/         # cases, parcels, projects, officers, audit seed
+│   ├── stores/        # caseStore.ts, sessionStore.ts
+│   ├── types/         # domain.ts, rbac.ts
+│   ├── App.tsx        # app root
+│   └── main.tsx       # entry point
+├── index.html
+├── tailwind.config.ts
+├── vite.config.ts     # dev port 3000, alias @ -> src
+├── package.json
+└── docs/              # prototype blueprint + reconstruction audit
 ```
 
-## 10. Core Modules
+---
 
-### Role Workspaces (`src/features/*`)
-**Purpose**: Provide customized dashboards and action queues tailored to the specific responsibilities of each of the 11 roles.
-**Dependencies**: `sessionStore.ts`, `caseStore.ts`, `rbac.ts`.
+## Requirements
 
-### Shared Domain Store (`src/stores/caseStore.ts`)
-**Purpose**: Acts as the central nervous system simulating the backend database.
-**Responsibilities**: Manages the state transitions of `AcquisitionCase`, stores `Parcel` arrays, logs `AuditEvents`, and updates `Payment` statuses.
+- **Node.js >= 18** (declared in `package.json` engines; exact minor not pinned)
+- npm (lockfile committed as `package-lock.json`; pnpm/yarn will also work but commands below use npm)
+- No database, Docker, or external service required.
 
-### RBAC Engine (`src/types/rbac.ts`)
-**Purpose**: Controls access and data visibility.
-**Responsibilities**: Provides `canAccess(roleId, stage)` and `jurisdictionFilter(roleId, case)` to ensure users only see and interact with data within their legal authority.
+---
 
-## 11. End-to-End Workflows
+## Quick Start
 
-**The Standard Land Acquisition Pipeline (RFCTLARR):**
+```bash
+# 1. Clone
+git clone <repository-url>
+cd Grid   # repo directory as checked out
 
-1. **Project Proposal**: Requiring Org submits a land requirement request.
-2. **Scrutiny**: State/Collector reviews the requirement.
-3. **SIA**: SIA Expert Group conducts Social Impact Assessment.
-4. **Preliminary Notification (Sec 11)**: CALA issues notice; GIS parcels are frozen.
-5. **Objections (Sec 15)**: Citizens file objections; CALA/Tehsil conducts hearings.
-6. **Declaration (Sec 19)**: Final declaration of intended acquisition.
-7. **Field Verification**: Field Officer captures GPS evidence and verifies ownership.
-8. **Award (Sec 23)**: Finance Officer computes compensation; CALA approves.
-9. **Payment**: Funds disbursed via PFMS.
-10. **Possession**: State takes physical possession of the land.
+# 2. Install
+npm install
 
-## 12. Data Architecture
+# 3. Start dev server
+npm run dev
+```
+
+Open **http://localhost:3000** (configured via `vite.config.ts` with `strictPort: true`).
+
+Production build and preview:
+
+```bash
+npm run build    # emits dist/
+npm run preview  # serves the build on http://localhost:4173
+```
+
+To try the workflows: open the landing page, use the role switcher to sign in as any of the 11 roles (e.g. Requiring Org → submit proposal; Collector/CALA → issue Sec-11 notice; Citizen → file objection; Finance Officer → process award), and watch the case stage, audit log, and dashboards update.
+
+---
+
+## Available Scripts
+
+| Command | Source | Description |
+|---|---|---|
+| `npm run dev` | `package.json` | Start Vite dev server (port 3000) |
+| `npm run build` | `package.json` | Production build to `dist/` |
+| `npm run preview` | `package.json` | Preview production build (port 4173) |
+| `npm run typecheck` | `package.json` | `tsc --noEmit` |
+| `npm run lint` | `package.json` | `oxlint` |
+
+No test, format, or seed scripts exist.
+
+---
+
+## Core Modules
+
+- **Role workspaces (`src/features/*`)** — each role gets its own dashboard, queues, and permitted actions; all read through the session + domain stores.
+- **Domain store (`src/stores/caseStore.ts`)** — central state machine for `AcquisitionCase`: stage transitions, parcel arrays, `AuditEvent` log, `Payment` statuses.
+- **Session store (`src/stores/sessionStore.ts`)** — holds the active demo role and jurisdiction; drives all filtering.
+- **RBAC engine (`src/types/rbac.ts`)** — `canAccess(role, stage)` plus jurisdiction filters; enforced client-side only in this MVP.
+
+---
+
+## Data Model
+
+Conceptual model implemented as TypeScript types in `src/types/domain.ts` (no database):
 
 ```mermaid
 erDiagram
-    Project ||--o{ AcquisitionCase : "contains"
-    AcquisitionCase ||--o{ Parcel : "requires"
-    AcquisitionCase ||--o{ Document : "holds"
-    AcquisitionCase ||--o{ AuditEvent : "logs"
-    AcquisitionCase ||--o{ Objection : "receives"
-    Parcel ||--|| Landowner : "owned by"
-    Parcel ||--o{ FieldEvidence : "verified via"
-    Parcel ||--o{ Payment : "compensated via"
+    Project ||--o{ AcquisitionCase : contains
+    AcquisitionCase ||--o{ Parcel : requires
+    AcquisitionCase ||--o{ Document : holds
+    AcquisitionCase ||--o{ AuditEvent : logs
+    AcquisitionCase ||--o{ Objection : receives
+    Parcel ||--|| Landowner : owned-by
+    Parcel ||--o{ FieldEvidence : verified-via
+    Parcel ||--o{ Payment : compensated-via
 ```
 
-*Note: This diagram represents the conceptual domain model implemented via TypeScript types in `src/types/domain.ts`.*
+State is seeded from `src/mocks/*` on load and lives in memory for the session; refreshing the browser resets all progress.
 
-## 13. Database
+---
 
-**Not currently implemented.**
-The application relies on in-memory mock data populated on initial load via `src/mocks/`. Mutations are handled by Zustand stores and persist only for the duration of the browser session.
+## Roles & Access Model
 
-## 14. API Documentation
+Strict National → State → District → Tehsil → Village hierarchy; jurisdiction determines visibility.
 
-**Not currently implemented.**
-All "API calls" are simulated as synchronous or mocked asynchronous actions directly against the Zustand stores.
+| Role | Scope | Responsibility |
+|---|---|---|
+| National Admin / DoLR | National | Apex oversight, audit, monitoring |
+| Ministry Nodal Officer | Ministry | Sponsoring-ministry tracking (e.g. MoRTH, MoD) |
+| Requiring Organization | Project | Submits requirements, deposits funds |
+| State Nodal Officer | State | Cross-district coordination, SLA monitoring |
+| District Collector / CALA | District | Statutory authority: notices, hearings, awards |
+| Tehsil / SDO | Tehsil | Scrutiny, verification, local coordination |
+| Field Officer / VAO | Village | Measurement, panchnama, GPS evidence |
+| SIA Expert Group | District | Social Impact Assessment, public hearings |
+| R&R Officer | District | Resettlement entitlements, colony development |
+| Finance Officer | District | Compensation computation, disbursement |
+| Citizen / Landowner | Own parcels | Tracks notices, files objections, receives payment |
 
-## 15. Authentication & Security
+---
 
-**Status**: MOCKED
-- **Authentication**: Simulating login via a simple role switcher on the landing page for demonstration purposes. No passwords or tokens are currently required.
-- **Authorization**: RBAC is enforced on the frontend via `RoleRedirect.tsx` and jurisdiction filters in `rbac.ts`.
-- **Security Limitations**: Because this is a frontend-only MVP, all data and business logic are exposed to the client. A future backend implementation will enforce these checks securely.
+## Authentication & Authorization
 
-## 16. Configuration
+- **Authentication (mocked):** role switcher on the landing page; no passwords, tokens, or SSO.
+- **Authorization (client-side only):** `RoleRedirect.tsx` guards routes; `rbac.ts` filters data by role and jurisdiction.
+- **Explicit non-claim:** nothing here is a server security boundary. All state and logic are visible in the browser. Production requires server-enforced auth (e.g. JWT via government SSO such as e-Pramaan — planned, not implemented).
 
-Environment variables are currently standard Vite defaults. No external secrets are required to run the prototype.
+No secrets or environment variables are required to run the prototype (standard Vite defaults only).
 
-## 17. Local Development Setup
+---
 
-**Prerequisites**:
-- Node.js (v18 or higher)
-- npm or pnpm
+## Integrations
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd bhoomisetu
+All external integrations are **planned and simulated in the UI only** — no live API connections exist:
 
-# Install dependencies
-npm install
+| System | Intended use |
+|---|---|
+| DILRMP / ULPIN | Fetch authoritative ownership (Khata/Khasra) by parcel ID |
+| PFMS | Audited direct-benefit-transfer of compensation |
+| PM Gati Shakti | Import geospatial project alignments |
+| Bhoomi Rashi | Interop for MoRTH highway acquisitions |
 
-# Start the development server
-npm run dev
-```
+---
 
-## 18. Running the Application
+## Limitations
 
-### Frontend Development Server
-```bash
-npm run dev
-```
-The application will be available at `http://localhost:5173` (or the port specified by Vite).
+- **Volatile state** — refresh resets cases, documents, and progress to mock seed.
+- **Fictional data** — all ULPINs, transaction IDs, names, and geographies are synthetic.
+- **Client-side RBAC** — bypassable by design in an MVP; not a security boundary.
+- **Scale** — client-side filtering will degrade with thousands of parcels; no pagination/virtualization guarantees.
+- **No backend, tests, CI, Docker, or observability** — static analysis only (`typecheck`, `lint`).
 
-### Production Build
-```bash
-npm run build
-npm run preview
-```
+---
 
-## 19. Testing
+## Roadmap
 
-The repository currently utilizes static analysis for correctness:
-- **Type Checking**: `npm run typecheck` (TypeScript)
-- **Linting**: `npm run lint` (Oxlint)
+### Implemented
 
-Unit and E2E testing frameworks (e.g., Vitest, Playwright) are planned but not yet implemented.
+- RBAC routing and jurisdiction filtering for all 11 roles
+- Per-role responsive workspaces and dashboards
+- Leaflet GIS parcel overlays (mock GeoJSON)
+- Mock document vault, audit log, grievance/objection flows
 
-## 20. Deployment
+### In Progress / Planned
 
-Deployment configuration is not currently included. The application can be built into a static SPA bundle using `npm run build` and hosted on any static file server (e.g., Vercel, Netlify, AWS S3).
+- **Backend + database** — API layer with PostgreSQL/PostGIS replacing Zustand mocks
+- **Real auth** — JWT via government SSO
+- **Live DILRMP/ULPIN and PFMS integrations**
+- **Testing** — unit (Vitest) and E2E (Playwright) suites
+- **Multi-tenant national rollout** supporting per-state rulesets
 
-## 21. External Integrations
+Roadmap items are aspirations; only the Implemented list above is verified in code.
 
-*All integrations listed below are architecturally planned and simulated in the UI, but **not yet technically connected** via APIs.*
+---
 
-- **DILRMP / ULPIN**: To fetch authoritative land records (Khata/Khasra details) based on the Unique Land Parcel Identification Number.
-- **PFMS (Public Financial Management System)**: For seamless, audited disbursement of compensation directly to landowner bank accounts.
-- **PM Gati Shakti**: To import geospatial alignment data for infrastructure projects.
-- **Bhoomi Rashi**: Interoperability for MoRTH-specific National Highway acquisition projects.
+## Troubleshooting
 
-## 22. Error Handling
+**`npm run dev` says the port is in use.**
+The dev server uses `strictPort: true` on port 3000 — it will not auto-pick another port. Stop the process on :3000 or free the port, then retry.
 
-Currently, errors are handled gracefully in the UI using standard React error boundaries and localized toast notifications. Since there is no backend, network errors are not simulated.
+**Page is blank / map tiles missing.**
+Check the dev-server console for module errors, and confirm outbound network access for Leaflet tile layers (map tiles load from a third-party tile CDN).
 
-## 23. Observability
+**State reset after refresh.**
+Expected: the MVP is in-memory only with no persistence layer.
 
-**Not currently implemented.**
-Logging and tracing (e.g., Sentry, DataDog) are planned for the production release.
+**`@/...` import errors in an editor.**
+The `@` alias maps to `./src` in both `vite.config.ts` and `tsconfig.json` — ensure your editor uses the workspace TypeScript version.
 
-## 24. Development Conventions
+---
 
-- **Typing**: Strict TypeScript interfaces defined in `src/types/`.
-- **Styling**: Utility-first CSS via Tailwind, encapsulated in modular shadcn/ui components.
-- **Routing**: Feature-based folder structure matching route paths.
+## Contributing
 
-## 25. Current Implementation Status
+This is an SIH 2026 competition prototype; external contributions are not currently being accepted. If that changes, the expected flow is: fork → branch → `npm install` → change → `npm run typecheck` + `npm run lint` → pull request.
 
-| Component | Status | Notes |
-| :--- | :--- | :--- |
-| **RBAC & Routing** | ✅ Implemented | Complete for all 11 roles. |
-| **Workspaces / UI** | ✅ Implemented | Responsive dashboards for all roles. |
-| **GIS Mapping** | ✅ Implemented | Leaflet integration with mock GeoJSON. |
-| **Backend API** | 🚧 Planned | Currently mocked with Zustand. |
-| **Database** | 🚧 Planned | Currently in-memory state. |
-| **PFMS / ULPIN** | 📋 Planned | UI elements exist; API integration pending. |
+---
 
-## 26. Known Limitations
+## License
 
-- **Volatile State**: Refreshing the browser will reset all case progression and uploaded documents to the initial mock state.
-- **Mocked Data**: All ULPINs, PFMS transaction IDs, and citizen details are fictional.
-- **Security**: RBAC is enforced purely on the client-side.
-- **Performance**: Large datasets (thousands of parcels) may cause UI lag due to client-side filtering.
+No open-source license is currently specified in the repository. All rights reserved by default — contact the maintainers before reuse.
 
-## 27. Roadmap
+---
 
-### Near Term
-- Integrate a Node.js/Express backend with a PostgreSQL/PostGIS database.
-- Implement proper JWT-based authentication via e-Pramaan or similar government SSO.
+## Disclaimer
 
-### Medium Term
-- Establish real-time API integrations with DILRMP for fetching verified land records.
-- Implement a secure payment gateway integration with PFMS.
-
-### Long Term
-- National rollout capability with multi-tenant architecture supporting distinct state rulesets.
-
-## 28. Contributing
-
-As this is a prototype for SIH 2026, external contributions are not currently being accepted.
-
-## 29. License
-
-Academic prototype for SIH 2026. No open-source license has currently been specified.
-
-## 30. Disclaimer
-
-This is a **prototype / proof of concept** developed for the Smart India Hackathon (SIH) 2026. It is a frontend-first simulation. The data, APIs, and integrations described are mocked for demonstration purposes and do not interact with real government databases.
+Prototype / proof of concept for Smart India Hackathon 2026. Frontend-only simulation: data, workflows, and integrations are mocked and do not interact with real government databases. See `docs/PROTOTYPE_BLUEPRINT.md` and `docs/PROTOTYPE_RECONSTRUCTION_AUDIT.md` for design background.
